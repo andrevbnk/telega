@@ -11,19 +11,11 @@ const mongoose = require('mongoose');
 
 const bodyParser = require('body-parser');
 const jsonParser = express.json();
-
+//ПОДКЛЮЧЕНИЕ МОДУЛЕЙ
 
 const url = "mongodb+srv://mor_ozzy:a4047946@cluster0-fmmbl.mongodb.net/test?retryWrites=true&w=majority";
+//Ссылка на подключение монго
 
-
-mongoose.connect(url, {
-useUnifiedTopology: true,
-useNewUrlParser: true,
-})
-.then(() => console.log('DB Connected!'))
-.catch(err => {
-console.log(`DB Connection Error: ${err.message}`);
-});
 
 const mongoClient = new MongoClient(url, {
     useUnifiedTopology: true
@@ -33,20 +25,8 @@ app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(__dirname+'/'));
 
-// app.use(session({
-//     secret: '=-)',
-//     resave: true,
-//     saveUninitialized: true,
-//     cookie: { maxAge: 365 * 24 * 60 * 60 * 1000 },
-//     store: new MongoStore({
-//         mongooseConnection: mongoose.connection,     
-//         collections: 'sessions', 
-//         url: url,
-//       }),
-//     proxy: true,
-//   }));
 
-mongoClient.connect((err, client) => {
+mongoClient.connect((err, client) => {//Подключение к БД
     if (err) return console.log(err);
     const dbClient = client;
     app.locals.collection = client.db("bank").collection("users");   
@@ -55,12 +35,26 @@ mongoClient.connect((err, client) => {
     });
 });
 
+const collection = req.app.locals.collection;
+const check_id = new Promise((result,rej)=>{//запрос на проверку id
+    collection.findOne(
+        {"id": id,}, 
+        (err, users) => {
+        if (err) {
+            return console.log(err);
+        }
+        console.log(users,"  find_one");
+        result(users);
+        return users;
+        // res.send(JSON.stringify(users));
+    });
+});
 
 
 
-app.post('/balance',jsonParser,(req,res)=>{
+
+app.post('/balance',jsonParser,(req,res)=>{// Запрос balance
     if (!req.body) return res.sendStatus(400);
-    const collection = req.app.locals.collection;
     const id = req.body.id;
     const bank = req.body.bank;
 
@@ -76,21 +70,7 @@ app.post('/balance',jsonParser,(req,res)=>{
         }
     };
     
-
-    const check_id = new Promise((result,rej)=>{
-        collection.findOne(
-            {"id": id,}, 
-            (err, users) => {
-            if (err) {
-                return console.log(err);
-            }
-            console.log(users,"  find_one");
-            result(users);
-            return users;
-            // res.send(JSON.stringify(users));
-        });
-    });
-
+    check_id(id,bank);//Проверка на существование пользователя
     check_id.then(result=>{
         if(result){
             if(result.token[bank]){
@@ -118,21 +98,7 @@ app.post('/test',jsonParser,(req,res)=>{
     const id = req.body.id;
     const token = req.body.token;
 
-    const check_id = new Promise((result,rej)=>{
-        collection.findOne(
-            {"id": id,}, 
-            (err, users) => {
-            if (err) {
-                return console.log(err);
-            }
-            console.log(users,"  find_one");
-            result(users);
-            return users;
-            // res.send(JSON.stringify(users));
-        });
-    });
-    
-   
+    check_id(id,token); //Проверка на существование пользователя
     check_id.then(result=>{
         console.log(result,"   res check_id");
         if(result){
@@ -163,3 +129,12 @@ app.post('/test',jsonParser,(req,res)=>{
         }
     }); 
 });
+
+
+function test(func,res){
+    func().then(result=>{
+        console.log(res,result);
+    });
+}
+test(check_id,1);
+
